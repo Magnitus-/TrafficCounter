@@ -1,0 +1,26 @@
+{
+  "name": "TrafficCounter",
+  "description": "Express.js Middleware To Count Requests on Paths",
+  "keywords": [
+    "express",
+    "mongo",
+    "middleware"
+  ],
+  "author": {
+    "name": "Eric Vallee",
+    "email": "eric_vallee2003@yahoo.ca"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/Magnitus-/TrafficCounter"
+  },
+  "licenses": [
+    {
+      "type": "MIT License",
+      "url": "http://mit-license.org/"
+    }
+  ],
+  "dependencies": {
+    "mongodb": "~1.4.19"
+  }
+}
