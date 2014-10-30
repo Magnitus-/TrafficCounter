@@ -21,6 +21,7 @@
     }
   ],
   "dependencies": {
-    "mongodb": "~1.4.19"
+    "mongodb": "~1.4.19",
+    "express": "~4.10.1"
   }
 }
