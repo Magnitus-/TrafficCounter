@@ -25,6 +25,7 @@ var express = require('express');
 var path = require('path');
 var MongoDB = require('mongodb');
 var TrafficCounter = require('TrafficCounter');
+var Nimble = require('nimble');
 
 TrafficCounter.on(TrafficCounter.Event.Error, function(Err) {
     //This is an error that occured during the initial object creation
@@ -67,6 +68,66 @@ MongoDB.MongoClient.connect("mongodb://localhost:27017/test", {native_parser:tru
         app.all('/SomeParam/:MyParam', TrafficCounter.CountTraffic(TrafficCounter.TimeUnit.Month, 12, app));
         app.get('/SomeParam/:MyParam', function(Req, Res){
             Res.send('We do not really care about the parameter in this example.');
+        });
+        
+        //Just displays a list of the paths we're tracking.
+        app.get('/Paths', function(Req, Res) {
+            TrafficCounter.GetPaths(function(Err, Paths) {
+                if(Err)
+                {
+                    Res.send(Err.toString());
+                }
+                else
+                {
+                    for(Index in Paths)
+                    {
+                        Res.write(Paths[Index].Path+'\n');
+                    }
+                    Res.end();
+                }
+            });
+        });
+        
+        
+        //Displays a list of the paths we're tracking and their views for this month
+        app.get('/Views', function(Req, Res) {
+            TrafficCounter.GetPaths(function(Err, Paths) {
+                if(Err)
+                {
+                    Res.send(Err.toString());
+                }
+                else
+                {
+                    var ParallelArray = [];
+                    for(Index in Paths)
+                    {
+                        ParallelArray.push((function(Callback) {
+                            var Context = this;
+                            TrafficCounter.GetTraffic(TrafficCounter.TimeUnit.Month, 0, Context.Path, true, function(Err, Views) {
+                                if(!Err)
+                                {
+                                    Res.write(Context.Path+': '+Views+'\n');
+                                    Callback();
+                                }
+                                else
+                                {
+                                    Callback(Err);
+                                }
+                            });
+                        }).bind(Paths[Index]));
+                    }
+                    Nimble.parallel(ParallelArray, function(Err) {
+                        if(Err)
+                        {
+                            Res.end(Err);
+                        }
+                        else
+                        {
+                            Res.end();
+                        }
+                    });
+                }
+            });
         });
         
         http.createServer(app).listen(8080);

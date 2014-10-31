@@ -26,28 +26,32 @@ var Events = require('events');
 var Util = require('util');
 
 var TimeUnit = {'Minute': 0, 'Hour': 1, 'Day': 2, 'Month': 3};
-var Event = {'SetupFinished': 'SetupFinished', 'Error': 'error', 'RequestError': 'RequestError'}
+var Event = {'GetPaths': 'GetPaths', 'GetTraffic': 'GetTraffic', 'SetupFinished': 'SetupFinished', 'Error': 'error', 'RequestError': 'RequestError', 'ReportError': 'ReportError'}
+
+function TruncateTime(TimeUnitParam, Time, Length)
+{
+    if(TimeUnitParam==TimeUnit.Month)
+    {
+        return(new Date(Time.getFullYear(), Time.getMonth()-Length));
+    }
+    else if(TimeUnitParam==TimeUnit.Day)
+    {
+        return(new Date(Time.getFullYear(), Time.getMonth(), Time.getDate()-Length));
+    }
+    else if(TimeUnitParam==TimeUnit.Hour)
+    {
+        return(new Date(Time.getFullYear(), Time.getMonth(), Time.getDate(), Time.getHours()-Length));
+    }
+    else
+    {
+        return(new Date(Time.getFullYear(), Time.getMonth(), Time.getDate(), Time.getHours(), Time.getMinutes()-Length));
+    }
+}
 
 function TruncateNow(TimeUnitParam)
 {
     var Now = new Date();
-    if(TimeUnitParam==TimeUnit.Month)
-    {
-        return(new Date(Now.getFullYear(), Now.getMonth()));
-    }
-    else if(TimeUnitParam==TimeUnit.Day)
-    {
-        return(new Date(Now.getFullYear(), Now.getMonth(), Now.getDate()));
-    }
-    else if(TimeUnitParam==TimeUnit.Hour)
-    {
-        return(new Date(Now.getFullYear(), Now.getMonth(), Now.getDate(), Now.getHours()));
-    }
-    else
-    {
-        return(new Date(Now.getFullYear(), Now.getMonth(), Now.getDate(), Now.getHours(), Now.getMinutes()));
-    }
-    
+    return(TruncateTime(TimeUnitParam, Now, 0));
 }
 
 function GetDiscreteSteps(Before, After, TimeUnitParam) //Assumes truncated time input
@@ -248,7 +252,65 @@ function GenerateTCConstructor() {//Closure simulates private/internal class mem
     
     function GetTraffic(TimeUnitParam, Length, Path, Cumulative, Callback)
     {
-        //To be implemented
+        var Context = this;
+        var DB = this.DB;
+        var Now = TruncateNow(TimeUnitParam);
+        var Then = TruncateTime(TimeUnitParam, Now, Length);
+        Params = {'TimeUnit': TimeUnitParam, 'Length': Length, 'Path': Path, 'Cumulative': Cumulative};
+        DB.collection(Path+':TrafficCounter', {'strict': true}, function(Err, ViewsCounterCollection) {
+            HandleError.call(Context, Err, Callback, function() {
+                if(Cumulative)
+                {
+                    ViewsCounterCollection.aggregate([{'$match' : {'Date': {'$lte': Now,'$gte': Then}}}, 
+                                                      {"$project" : {"Views": 1, "_id" : 0}}, 
+                                                      {"$group" : {"_id" : 0, "Views": {"$sum" : "$Views"}}}], function(Err, Result) {
+                        HandleError.call(Context, Err, Callback, function() {
+                            var Views = 0;
+                            if(Result.length>0)
+                            {
+                                Views = Result[0].Views;
+                            }
+                            Context.emit(Event.GetTraffic, Params, Views);
+                            if(Callback)
+                            {
+                                Callback(null, Views);
+                            }
+                        }, Event.ReportError);
+                    });
+                }
+                else
+                {
+                    ViewsCounterCollection.find({'Date': {'$lte': Now,'$gte': Then}}).sort({"$natural" : 1}).toArray(function(Err, Items) {
+                        HandleError.call(Context, Err, Callback, function() {
+                            Context.emit(Event.GetTraffic, Params, Items);
+                            if(Callback)
+                            {
+                                Callback(null, Items);
+                            }
+                        }, Event.ReportError);
+                    });
+                }
+            }, Event.ReportError);
+        });
+    }
+    
+    function GetPaths(Callback)
+    {
+        var Context = this;
+        var DB = this.DB;
+        DB.collection('DefinedPaths', {'strict': true}, function(Err, DefinedPathsCollection) {
+            HandleError.call(Context, Err, Callback, function() {
+                DefinedPathsCollection.find({}).toArray(function(Err, Items) {
+                    HandleError.call(Context, Err, Callback, function() {
+                        if(Callback)
+                        {
+                            Context.emit(Event.GetPaths, Items);
+                            Callback(null, Items);
+                        }
+                    }, Event.ReportError);
+                });
+            }, Event.ReportError);
+        });
     }
     
     function TrafficCounter()
@@ -275,6 +337,7 @@ function GenerateTCConstructor() {//Closure simulates private/internal class mem
                         });
                     };
                     Context.GetTraffic = GetTraffic;
+                    Context.GetPaths = GetPaths;
                     if(Callback)
                     {
                         Context.emit(Event.SetupFinished);
