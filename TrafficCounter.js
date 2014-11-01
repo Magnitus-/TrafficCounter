@@ -261,7 +261,7 @@ function GenerateTCConstructor() {//Closure simulates private/internal class mem
             HandleError.call(Context, Err, Callback, function() {
                 if(Cumulative)
                 {
-                    ViewsCounterCollection.aggregate([{'$match' : {'Date': {'$lte': Now,'$gte': Then}}}, 
+                    ViewsCounterCollection.aggregate([{'$match' : {'Date': {'$gte': Then}}}, 
                                                       {"$project" : {"Views": 1, "_id" : 0}}, 
                                                       {"$group" : {"_id" : 0, "Views": {"$sum" : "$Views"}}}], function(Err, Result) {
                         HandleError.call(Context, Err, Callback, function() {
@@ -280,7 +280,7 @@ function GenerateTCConstructor() {//Closure simulates private/internal class mem
                 }
                 else
                 {
-                    ViewsCounterCollection.find({'Date': {'$lte': Now,'$gte': Then}}).sort({"$natural" : 1}).toArray(function(Err, Items) {
+                    ViewsCounterCollection.find({'Date': {'$gte': Then}}).sort({"$natural" : 1}).toArray(function(Err, Items) {
                         HandleError.call(Context, Err, Callback, function() {
                             Context.emit(Event.GetTraffic, Params, Items);
                             if(Callback)
