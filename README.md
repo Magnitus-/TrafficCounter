@@ -102,7 +102,7 @@ If you find '/' and '/Friends/:Friend' to be a little ugly, you can specify an a
 app.get('/', TrafficCounter.CountTraffic(TrafficCounter.TimeUnit.Hour, 12, app, 'MainPage'));
 app.get('/', SomeFunction);
 ...
-app.get('/', TrafficCounter.CountTraffic(TrafficCounter.TimeUnit.Day, 7, app, 'FriendLookup'));
+app.get('/Friends/:Friend', TrafficCounter.CountTraffic(TrafficCounter.TimeUnit.Day, 7, app, 'FriendLookup'));
 app.get('/Friends/:Friend', OtherFunction);
 ```
 
