@@ -114,10 +114,10 @@ TrafficCounter.CountTraffic(<TimeUnit>, <Length>, <App>, <PathAlias>);
 
 All arguments except the last are mandatory.
 
-"TimeUnit" can take the following values: TrafficCounter.TimeUnit.Minute, TrafficCounter.TimeUnit.Hour, TrafficCounter.TimeUnit.Day, TrafficCounter.TimeUnit.Month
-"Length" must be a valid integer greater than 0.
-"App" must be the express app that the route handler is assigned to.
-"PathAlias" is a string representing an alternative (hopefully more user friendly) name for the path.
+- "TimeUnit" can take the following values: TrafficCounter.TimeUnit.Minute, TrafficCounter.TimeUnit.Hour, TrafficCounter.TimeUnit.Day, TrafficCounter.TimeUnit.Month
+- "Length" must be a valid integer greater than 0.
+- "App" must be the express app that the route handler is assigned to.
+- "PathAlias" is a string representing an alternative (hopefully more user friendly) name for the path.
 
 Handling Errors When Counting
 =============================
