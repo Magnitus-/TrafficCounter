@@ -122,17 +122,13 @@ function GenerateTCConstructor() {//Closure simulates private/internal class mem
     {
         var Context = this;
         var DB = this.DB;
-        DB.createCollection('ViewsByPath', {'w': 1}, function(Err, ViewsByPathCollection) {
+        DB.createCollection('DefinedPaths', {'w': 1}, function(Err, DefinedPathsCollection) {
             HandleError.call(Context, Err, Callback, function() {
-                DB.createCollection('DefinedPaths', {'w': 1}, function(Err, DefinedPathsCollection) {
-                    HandleError.call(Context, Err, Callback, function() {
-                        DefinedPathsCollection.ensureIndex({'Path': 1}, {'unique': true}, function(Err, Index) {});
-                        if(Callback)
-                        {
-                            Callback();
-                        }
-                    }, Event.Error);
-                });
+                DefinedPathsCollection.ensureIndex({'Path': 1}, {'unique': true}, function(Err, Index) {});
+                if(Callback)
+                {
+                    Callback();
+                }
             }, Event.Error);
         });
     }
