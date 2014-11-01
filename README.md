@@ -21,10 +21,22 @@ Installation
 
 npm install traffic-counter
 
+Running Tests
+=============
+
+In the directory where the module is located, run the following 2 commands on the prompt:
+
+- npm install
+- npm test
+
 Initial Setup
 =============
 
-Assuming you required the library in a TrafficCounter variable...
+Assuming you required the library in a TrafficCounter variable as follows...
+
+```javascript
+var TrafficCounter = require('traffic-counter');
+```
 
 First, you need to ensure core collection dependencies by calling the following asynchronous call:
 

@@ -24,7 +24,7 @@ var http = require('http');
 var express = require('express');
 var path = require('path');
 var MongoDB = require('mongodb');
-var TrafficCounter = require('TrafficCounter');
+var TrafficCounter = require('../lib/TrafficCounter');
 var Nimble = require('nimble');
 
 TrafficCounter.on(TrafficCounter.Event.Error, function(Err) {
