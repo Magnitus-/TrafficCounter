@@ -1,23 +1,21 @@
 {
-  "name": "TrafficCounter",
-  "version" : "0.1.4",
+  "name": "traffic-counter",
+  "version": "0.1.4",
   "description": "Express.js Middleware To Count Requests on Paths",
   "keywords": [
     "express",
     "mongo",
     "middleware"
   ],
-  "author": {
-    "name": "Eric Vallee",
-    "email": "eric_vallee2003@yahoo.ca"
-  },
+  "author": "Eric Vallee <eric_vallee2003@yahoo.ca>",
   "main": "./lib/TrafficCounter.js",
   "repository": {
     "type": "git",
     "url": "http://github.com/Magnitus-/TrafficCounter"
   },
-  "bugs": { "url" : "http://github.com/Magnitus-/TrafficCounter/issues", 
-    "email" : "eric_vallee2003@yahoo.ca"
+  "bugs": {
+    "url": "http://github.com/Magnitus-/TrafficCounter/issues",
+    "email": "eric_vallee2003@yahoo.ca"
   },
   "licenses": [
     {
@@ -31,5 +29,12 @@
   "devDependencies": {
     "express": "~4.10.1",
     "nimble": "0.0.2"
-  }
+  },
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "MIT"
 }
