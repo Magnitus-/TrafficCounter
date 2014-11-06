@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+var MongoDB = require('mongodb');
 var TrafficCounter = require('../lib/TrafficCounter');
 
 exports.TestHandleError = function(Test) {
@@ -63,16 +64,16 @@ exports.TestHandleError = function(Test) {
     TrafficCounter.once(TrafficCounter.Event.Test, UnexpectedErrorEvent);
     
     Error = null;
-    TrafficCounter.UnitCalls['HandleError'].call(TrafficCounter, Error, UnexpectedErrorCall, ExpectedErrorCall, TrafficCounter.Event.Test);
+    TrafficCounter.UnitTestCalls['HandleError'].call(TrafficCounter, Error, UnexpectedErrorCall, ExpectedErrorCall, TrafficCounter.Event.Test);
     setTimeout(function() {
         Error = 1;
-        TrafficCounter.UnitCalls['HandleError'].call(TrafficCounter, Error, ExpectedErrorCall, UnexpectedErrorCall, null);
+        TrafficCounter.UnitTestCalls['HandleError'].call(TrafficCounter, Error, ExpectedErrorCall, UnexpectedErrorCall, null);
         setTimeout(function() {
             TrafficCounter.removeListener(TrafficCounter.Event.Test, UnexpectedErrorEvent);
             TrafficCounter.once(TrafficCounter.Event.Test, ExpectedErrorEvent);
             
             Error = 2;
-            TrafficCounter.UnitCalls['HandleError'].call(TrafficCounter, Error, ExpectedErrorCall, UnexpectedErrorCall, TrafficCounter.Event.Test);
+            TrafficCounter.UnitTestCalls['HandleError'].call(TrafficCounter, Error, ExpectedErrorCall, UnexpectedErrorCall, TrafficCounter.Event.Test);
             setTimeout(function() {
                 Test.done();
             }, 100);
@@ -80,25 +81,111 @@ exports.TestHandleError = function(Test) {
     }, 100);
 };
 
-exports.TestEnsureSharedDependencies = function(Test) {
-    Test.expect(0);
-    Test.done();
+var Context = {};
+var RandomIdentifier = 'TrafficCounterTestDB'+Math.random().toString(36).slice(-8);
+
+exports.EnsureDependencies = {
+    'setUp': function(Callback) {
+        MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context['DB'] = DB;
+            Callback();
+        });
+    },
+    'tearDown': function(Callback) {
+        Context.DB.dropDatabase(function(Err, Result) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context.DB.close();
+            Context['DB'] = null;
+            Callback();
+        });
+    },
+    'TestEnsureSharedDependencies': function(Test) {
+        Test.expect(1);
+        TrafficCounter.UnitTestCalls.EnsureSharedDependencies.call(Context, function(Err) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context.DB.collectionNames("DefinedPaths", function(Err, Items) {
+                if(Err)
+                {
+                    console.log(Err);
+                }
+                Test.ok(Items.length==1, "DefinedPaths collection is created as expected.");
+                Test.done();
+            });
+        });
+    },
+    'TestEnsurePathCoreDependencies': function(Test) {
+        Test.expect(2);
+        TrafficCounter.UnitTestCalls.EnsureSharedDependencies.call(Context, function(Err) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            TrafficCounter.UnitTestCalls.EnsurePathCoreDependencies.call(Context, {'Path': 'Test', 'Length': 10}, function(Err) {
+                if(Err)
+                {
+                    console.log(Err);
+                }
+                Context.DB.collection('DefinedPaths', function(Err, DefinedPathsCollection) {
+                    if(Err)
+                    {
+                        console.log(Err);
+                    }
+                    DefinedPathsCollection.find({'Path': 'Test'}).toArray(function(Err, Items) {
+                        Test.ok(Items.length==1, "Path was inserted in collection as expected.");
+                        Context.DB.collectionNames("Test:TrafficCounter", function(Err, Items) {
+                            Test.ok(Items.length==1, "Test collection was created as expected.");
+                            Test.done();
+                        });
+                    });
+                });
+            });
+        });
+    },
+    'TestEnsurePathDependencies': function(Test) {
+        Test.expect(0);
+        
+        Test.done();
+    },
 };
 
-exports.TestEnsurePathCoreDependencies = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
-
-exports.TestEnsurePathDependencies = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
-
-exports.TestEnsureSharedDependencies = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
+if(process.env['USER'] && process.env['USER']=='root')
+{
+    exports.ErrorHandling = {
+        'setUp': function(Callback) {
+            MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+                Context['DB'] = DB;
+                Context.DB.command({'serverStatus': 1}, function(Err, Result) {
+                    Context['PID'] = Result.pid;
+                    process.kill(Context.PID, 'SIGSTOP');
+                    Callback();
+                });
+            });
+        },
+        'tearDown': function(Callback) {
+            process.kill(Context.PID, 'SIGCONT');
+            Context.DB.dropDatabase(function(Err, Result) {
+                if(Err)
+                {
+                    console.log(Err);
+                }
+                Context.DB.close();
+                Context['DB'] = null;
+                Context['PID'] = null
+                Callback();
+            });
+        }
+    };
+}
 
 exports.TestIncrement = function(Test) {
     Test.expect(0);
