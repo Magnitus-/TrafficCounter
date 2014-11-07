@@ -22,6 +22,7 @@ THE SOFTWARE.
 
 var MongoDB = require('mongodb');
 var TrafficCounter = require('../lib/TrafficCounter');
+var Nimble = require('nimble');
 
 exports.TestHandleError = function(Test) {
     Test.expect(4);
@@ -118,7 +119,7 @@ exports.EnsureDependencies = {
                 {
                     console.log(Err);
                 }
-                Test.ok(Items.length==1, "DefinedPaths collection is created as expected.");
+                Test.ok(Items.length==1, "Ensure DefinedPaths collection is created as expected.");
                 Test.done();
             });
         });
@@ -141,9 +142,9 @@ exports.EnsureDependencies = {
                         console.log(Err);
                     }
                     DefinedPathsCollection.find({'Path': 'Test'}).toArray(function(Err, Items) {
-                        Test.ok(Items.length==1, "Path was inserted in collection as expected.");
+                        Test.ok(Items.length==1, "Ensure path was inserted in collection as expected.");
                         Context.DB.collectionNames("Test:TrafficCounter", function(Err, Items) {
-                            Test.ok(Items.length==1, "Test collection was created as expected.");
+                            Test.ok(Items.length==1, "Ensure collection was created as expected.");
                             Test.done();
                         });
                     });
@@ -152,10 +153,84 @@ exports.EnsureDependencies = {
         });
     },
     'TestEnsurePathDependencies': function(Test) {
-        Test.expect(0);
+        Test.expect(6);
         
-        Test.done();
-    },
+        var Time = [];
+        Time[0] = TrafficCounter.UnitTestCalls.TruncateNow(TrafficCounter.TimeUnit.Hour);
+        var Index = 1;
+        while(Index<10)
+        {
+            Time.push(TrafficCounter.UnitTestCalls.TruncateTime(TrafficCounter.TimeUnit.Hour, Time[0], Index));
+            Index+=1;
+        }
+        var HourEarlier = TrafficCounter.UnitTestCalls.TruncateTime(TrafficCounter.TimeUnit.Hour, Time[0], -1);
+
+        Nimble.series([
+            function(Callback) {
+                TrafficCounter.UnitTestCalls.EnsureSharedDependencies.call(Context, function(Err) {
+                    Callback(Err);
+                });
+            },
+            function(Callback) {
+                TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': Time[0]}, function(Err) {
+                    Context.DB.collection('Test:TrafficCounter', function(Err, CounterCollection) {
+                        CounterCollection.find({'Date': Time[0]}).toArray(function(Err, Items) {
+                            Test.ok(Items.length==1, "Ensure that the counter for the specified time was inserted.");
+                            if(Items.length>0)
+                            {
+                                Test.ok(Items[0].Views==0, "Ensure that the counter for the specified time was initialized to 0.");
+                            }
+                            Callback(Err);
+                        });
+                    });
+                });
+            },
+            function(Callback) {
+                TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': HourEarlier}, function(Err) {
+                    Context.DB.collection('Test:TrafficCounter', function(Err, CounterCollection) {
+                        CounterCollection.find({'Date': HourEarlier}).toArray(function(Err, Items) {
+                            Test.ok(Items.length==0, "Ensure that non-inserted counter from a previous time is not inserted.");
+                            Callback(Err);
+                        });
+                    });
+                });
+            },
+            function(Callback) {
+                var Calls = [];
+                Index = 1;
+                while(Index<10)
+                {
+                    Calls.push((function(Callback) {
+                        TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': Time[this.Index]}, function(Err) {
+                            Callback(Err);
+                        });
+                    }).bind({'Index': Index}));
+                    Index+=1;
+                }
+                Nimble.series(Calls, function(Err) {
+                    Context.DB.collection('Test:TrafficCounter', function(Err, CounterCollection) {
+                        CounterCollection.find({'Date': Time[0]}).toArray(function(Err, Items) {
+                            Test.ok(Items.length==0, "Ensure that the initial time was phased out outside the interval of interest was phased out.");
+                            CounterCollection.find({'Date': Time[1]}).toArray(function(Err, Items) {
+                                Test.ok(Items.length==1, "Ensure that the time at the left edge of our interval of interest is still here.");
+                                CounterCollection.find({'Date': Time[9]}).toArray(function(Err, Items) {
+                                    Test.ok(Items.length==1, "Ensure that the time at the right edge of our interval of interest is still here.");
+                                    Callback(Err);
+                                });
+                            });
+                        });
+                    });
+                });
+            }
+        ],
+        function(Err) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Test.done();
+        });
+    }
 };
 
 if(process.env['USER'] && process.env['USER']=='root')
