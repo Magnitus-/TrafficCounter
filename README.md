@@ -131,6 +131,30 @@ All arguments except the last are mandatory.
 - "App" must be the express app that the route handler is assigned to.
 - "PathAlias" is a string representing an alternative (hopefully more user friendly) name for the path.
 
+Quirk
+=====
+
+Due to incompleteness in the way Express preserves (or more specifically doesn't preserve) path expressions, I've been unable to find a way so far to preserve the path expression in the following 2 example cases:
+
+```javascript
+App.use('/SomePath/:SomeParam', TrafficCounter.CountTraffic(..., App));
+//Requests on /SomePath/1 will be stored as /SomePath/1, not /SomePath/:SomeParam
+```
+
+```javascript
+AppRouter = express.Router();
+AppRouter.all('/SomePath', TrafficCounter.CountTraffic(..., AppRouter));
+App.use('/SomePath/:SomeParam', AppRouter);
+//Requests on /SomePath/1/SomePath will be stored as /SomePath/1/SomePath, not /SomePath/:SomeParam/SomePath
+```
+
+A workaround for this is to explicitly specify the path in the last parameter of TrafficCounter.CountTraffic:
+
+```javascript
+App.use('/SomePath/:SomeParam', TrafficCounter.CountTraffic(..., App, '/SomePath/:SomeParam'));
+//Now, requests on /SomePath/1 will be stored as /SomePath/:SomeParam
+```
+
 Handling Errors When Counting
 =============================
 

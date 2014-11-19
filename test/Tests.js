@@ -20,6 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+var Http = require('http');
+var Express = require('express');
 var MongoDB = require('mongodb');
 var TrafficCounter = require('../lib/TrafficCounter');
 var Nimble = require('nimble');
@@ -230,6 +232,98 @@ exports.EnsureDependencies = {
             }
             Test.done();
         });
+    }
+};
+
+var Server = null;
+var App, InnerApp, InnerAppRouter;
+
+exports.BuildFullPath = {
+    'setUp': function(Callback) {
+        App = Express();
+        function ReturnFullPath(Router) {
+            return function (Req, Res) {
+                Res.json({'FullPath': TrafficCounter.UnitTestCalls.BuildFullPath(Req, Router)});
+            }
+        }
+        App.get('/', ReturnFullPath(App));
+        App.get('/test', ReturnFullPath(App));
+        App.get('/test/:id', ReturnFullPath(App));
+        InnerApp = Express();
+        InnerApp.get('/', ReturnFullPath(InnerApp));
+        InnerApp.get('/test', ReturnFullPath(InnerApp));
+        InnerApp.get('/test/:id', ReturnFullPath(InnerApp));
+        App.use('/InnerApp/:Innerid', InnerApp);
+        InnerAppRouter = Express.Router();
+        InnerAppRouter.get('/', ReturnFullPath(InnerAppRouter));
+        InnerAppRouter.get('/test', ReturnFullPath(InnerAppRouter));
+        InnerAppRouter.get('/test/:id', ReturnFullPath(InnerAppRouter));
+        App.use('/InnerAppRouter', InnerAppRouter);
+        App.use('/Use', ReturnFullPath(App));
+        App.use(function(Req, Res) {
+            console.error('Unproccessed Request');
+        });
+        App.use(function(Err, Req, Res, Next) {
+            console.error('Request Caused Error');
+        });
+        Server = Http.createServer(App);
+        Server.listen(8080, function() {
+            Callback();
+        });
+    },
+    'tearDown': function(Callback) {
+        Server.close(function() {
+            Callback();
+        });
+    },
+    'TestBuildFullPath': function(Test) {
+        Test.expect(10);
+        function EnsurePath(Path, Expected, Callback)
+        {
+            var Req = Http.request({'hostname': 'localhost', 'port': 8080, 'method': 'GET', 'path': Path, 'headers': {'Accept': 'application/json'}}, function(Res) {
+                Res.setEncoding('utf8');
+                Res.on('data', function (Chunk) {
+                    var Body = JSON.parse(Chunk);
+                    Test.ok(Body['FullPath']==Expected, "Confirming building of paths works");
+                    Callback();
+                });
+            });
+            Req.end();
+        }
+        Nimble.series([
+            function(Callback) {
+                EnsurePath('/', '/', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/test', '/test', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/test/1', '/test/:id', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerApp/1', '/InnerApp/:Innerid', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerApp/1/test', '/InnerApp/:Innerid/test', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerApp/1/test/1', '/InnerApp/:Innerid/test/:id', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerAppRouter', '/InnerAppRouter', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerAppRouter/test', '/InnerAppRouter/test', Callback);
+            },
+            function(Callback) {
+                EnsurePath('/InnerAppRouter/test/1', '/InnerAppRouter/test/:id', Callback);
+            },  
+            function(Callback) {
+                EnsurePath('/Use', '/Use', Callback);
+            }], 
+            function(Err) {
+                Test.done();
+            });
     }
 };
 
