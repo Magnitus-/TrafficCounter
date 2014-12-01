@@ -103,7 +103,7 @@ MongoDB.MongoClient.connect("mongodb://localhost:27017/test", {native_parser:tru
                     {
                         ParallelArray.push((function(Callback) {
                             var Context = this;
-                            TrafficCounter.GetTraffic(TrafficCounter.TimeUnit.Month, 0, Context.Path, true, function(Err, Views) {
+                            TrafficCounter.GetTraffic({'TimeUnit': TrafficCounter.TimeUnit.Month, 'Length': 0, 'Path': Context.Path, 'Cumulative': true}, function(Err, Views) {
                                 if(!Err)
                                 {
                                     Res.write(Context.Path+': '+Views+'\n');

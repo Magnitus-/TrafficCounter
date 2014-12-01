@@ -26,6 +26,25 @@ var MongoDB = require('mongodb');
 var TrafficCounter = require('../lib/TrafficCounter');
 var Nimble = require('nimble');
 
+var Context = {};
+var RandomIdentifier = 'TrafficCounterTestDB'+Math.random().toString(36).slice(-8);
+
+/*function DefaultDBCreate(Callback)
+{
+    MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+        if(Err)
+        {
+            console.log(Err);
+        }
+        Context['DB'] = DB;
+        Callback();
+    });
+}
+
+function DefaultDBDestroy(Callback)
+{
+}*/
+
 exports.TestHandleError = function(Test) {
     Test.expect(4);
     
@@ -84,9 +103,6 @@ exports.TestHandleError = function(Test) {
     }, 100);
 };
 
-var Context = {};
-var RandomIdentifier = 'TrafficCounterTestDB'+Math.random().toString(36).slice(-8);
-
 exports.EnsureDependencies = {
     'setUp': function(Callback) {
         MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
@@ -106,6 +122,7 @@ exports.EnsureDependencies = {
             }
             Context.DB.close();
             Context['DB'] = null;
+            TrafficCounter.UnitTestCalls.ClearMemory();
             Callback();
         });
     },
@@ -327,9 +344,327 @@ exports.BuildFullPath = {
     }
 };
 
+exports.TestIncrement = {
+    'setUp': function(Callback) {
+        MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context = TrafficCounter;
+            Context.Setup(DB, Callback);
+        });
+    },
+    'tearDown': function(Callback) {
+        Context.DB.dropDatabase(function(Err, Result) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context.DB.close();
+            Context = {};
+            TrafficCounter.UnitTestCalls.ClearMemory();
+            Callback();
+        });
+    },
+    'TestIncrement': function(Test) {
+        Test.expect(2);
+        var Now = TrafficCounter.UnitTestCalls.TruncateNow();
+        TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': Now}, function(Err) {
+            Context.DB.collection('Test:TrafficCounter', function(Err, CounterCollection) {
+                TrafficCounter.UnitTestCalls.Increment.call(Context, {'Path': 'Test', 'Now': Now}, function(Err) {
+                    CounterCollection.find({'Date': Now}).toArray(function(Err, Items) {
+                        Test.ok(Items[0].Views==1, "Confirming that the first insertion is successful.");
+                        TrafficCounter.UnitTestCalls.Increment.call(Context, {'Path': 'Test', 'Now': Now}, function(Err) {
+                            CounterCollection.find({'Date': Now}).toArray(function(Err, Items) {
+                                Test.ok(Items[0].Views==2, "Confirming that subsequent insertions are successful.");
+                                Test.done();
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    }
+};
+
+exports.TestGetPaths = {
+    'setUp': function(Callback) {
+        MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context = TrafficCounter;
+            Context.Setup(DB, Callback);
+        });
+    },
+    'tearDown': function(Callback) {
+        Context.DB.dropDatabase(function(Err, Result) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context.DB.close();
+            Context = {};
+            TrafficCounter.UnitTestCalls.ClearMemory();
+            Callback();
+        });
+    },
+    'TestGetPaths': function(Test) {
+        Test.expect(3);
+        TrafficCounter.UnitTestCalls.GetPaths.call(Context, function(Err, Items) {
+            Test.ok(Items.length===0, "Confirming the default path list returned when there is no path is an empty array.");
+            TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': new Date()}, function(Err) {
+                TrafficCounter.UnitTestCalls.GetPaths.call(Context, function(Err, Items) {
+                    Test.ok(Items.length===1 && Items[0].Path==='Test', "Confirming that path list contains an added path.");
+                    TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test2', 'Length': 9, 'Now': new Date()}, function(Err) {
+                        TrafficCounter.UnitTestCalls.GetPaths.call(Context, function(Err, Items) {
+                            var ItemsAsPaths = Items.map(function(Item, Index, List) {
+                                return(Item.Path);
+                            });
+                            Test.ok(Items.length===2 && ItemsAsPaths.indexOf('Test') >= 0 && ItemsAsPaths.indexOf('Test2') >= 0, "Confirming that path list contains an added paths.");
+                            Test.done();
+                        });
+                    });
+                });
+            });
+        });
+    }
+};
+
+exports.TestGetTraffic = {
+    'setUp': function(Callback) {
+        MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context = TrafficCounter;
+            Context.Setup(DB, Callback);
+        });
+    },
+    'tearDown': function(Callback) {
+        Context.DB.dropDatabase(function(Err, Result) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            Context.DB.close();
+            Context = {};
+            TrafficCounter.UnitTestCalls.ClearMemory();
+            Callback();
+        });
+    },
+    'TestGetTraffic': function(Test) {
+        Test.expect(12);
+        var Now = TrafficCounter.UnitTestCalls.TruncateNow(TrafficCounter.TimeUnit.Hour);
+        Nimble.series([
+            function(Callback) {
+                TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': Now}, function(Err) {
+                    TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': Now}, function(Err, Result) {
+                        var AllZeroViews = Result.every(function(Item, Index, List) {
+                            return(Item.Views==0);
+                        });
+                        Test.ok(AllZeroViews, "Confirm that vectorial traffic have all zero views for all recorded time intervals by default.");
+                        TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': Now, 'Cumulative': true}, function(Err, Result) {
+                            Test.ok(Result===0, "Confirming that cumulative traffic with no data returns 0.");
+                            Callback();
+                        });
+                    });
+                });
+            },
+            function(Callback) {
+                TrafficCounter.UnitTestCalls.Increment.call(Context, {'Path': 'Test', 'Now': Now}, function(Err) {
+                    TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': Now}, function(Err, Result) {
+                        var Sum = Result.reduce(function(Prev , Item, Index, List) {
+                            return Prev+Item.Views;
+                        }, 0);
+                        Test.ok(Sum==1, "Confirm that vectorial traffic works after first increment.");
+                        TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': Now, 'Cumulative': true}, function(Err, Result) {
+                            Test.ok(Result===1, "Confirming that cumulative traffic works after first increment.");
+                                Callback();
+                        });
+                    });
+                });
+            },
+            function(Callback) {
+                var Calls = [];
+                var Additive = 1;
+                while(Additive<=4)
+                {
+                    Calls.push((function(Callback) {
+                        var Amount = Math.pow(10, this.Additive);
+                        var ReferenceTime = TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, this.Additive);
+                        TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 9, 'Now': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, this.Additive)}, function(Err) {
+                            TrafficCounter.UnitTestCalls.Increment.call(Context, {'Path': 'Test', 'Now': ReferenceTime, 'Amount': Amount}, function(Err) {
+                                Callback();
+                            });
+                        });
+                    }).bind({'Additive': Additive}));
+                    Additive+=1;
+                }
+                Nimble.series(Calls, Callback);
+            }, 
+            function(Callback) {
+                Context.DB.collection('Test:TrafficCounter', {'strict': true}, function(Err, ViewsCounterCollection) {
+                    ViewsCounterCollection.find({}).toArray(function(Err, Items) {
+                        //console.log(Items);
+                        Callback();
+                    });
+                });
+            },
+            function(Callback) {
+                TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 1, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 1), 'Cumulative': true}, function(Err, Result) {
+                    Test.ok(Result===11, "Confirming that cumulative traffic works at the leftmost intervals.");
+                    TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 2, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 4), 'Cumulative': true}, function(Err, Result) {
+                        Test.ok(Result===11100, "Confirming that cumulative traffic works at the rightmost intervals.");
+                        TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 10, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 4), 'Cumulative': true}, function(Err, Result) {
+                            Test.ok(Result===11111, "Confirming that cumulative traffic works over a range bigger than recorded intervals.");
+                            TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 20), 'Cumulative': true}, function(Err, Result) {
+                                Test.ok(Result===0, "Confirming that cumulative traffic works over a range disjoint from recorded intervals.");
+                                Callback();
+                            });
+                        });
+                    });
+                });
+            },
+            function(Callback) {
+                TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 1, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 1)}, function(Err, Result) {
+                    var Sum = Result.reduce(function(Prev, Item, Index, List) {
+                        return(Prev+Item.Views);
+                    }, 0);
+                    Test.ok(Sum===11, "Confirming that vectorial traffic works at the leftmost intervals.");
+                    TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 2, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 4)}, function(Err, Result) {
+                        Sum = Result.reduce(function(Prev, Item, Index, List) {
+                            return(Prev+Item.Views);
+                        }, 0);
+                        Test.ok(Sum===11100, "Confirming that vectorial traffic works at the rightmost intervals.");
+                        TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 10, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 4)}, function(Err, Result) {
+                            Sum = Result.reduce(function(Prev, Item, Index, List) {
+                                return(Prev+Item.Views);
+                            }, 0);
+                            Test.ok(Sum===11111, "Confirming that vectorial traffic works over a range bigger than recorded intervals.");
+                            TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 20)}, function(Err, Result) {
+                                Sum = Result.reduce(function(Prev, Item, Index, List) {
+                                    return(Prev+Item.Views);
+                                }, 0);
+                                Test.ok(Sum===0, "Confirming that vectorial traffic works over a range disjoint from recorded intervals.");
+                                Callback();
+                            });
+                        });
+                    });
+                });
+            }], 
+            function(Err) {
+                Test.done();
+            }
+        );
+    }
+};
+
+exports.ErrorHandling = {
+    'setUp': function(Callback) {
+        MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
+            Context = TrafficCounter;
+            Context.Setup(DB, function(Err) {
+                if(Err)
+                {
+                    console.log(Err);
+                }
+                TrafficCounter.UnitTestCalls.ClearMemory();
+                Context.DB.dropDatabase(function(Err, Result) {
+                    if(Err)
+                    {
+                        console.log(Err);
+                    }
+                    Context.DB.close();
+                    Callback();
+                });
+            });
+        });
+    },
+    'tearDown': function(Callback) {
+        Context = {};
+        Callback();
+    },
+    'TestEnsureSharedDependencies': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.Error, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.UnitTestCalls.EnsureSharedDependencies.call(Context, function(Err) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    },
+    'TestEnsurePathCoreDependencies': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.RequestError, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.UnitTestCalls.EnsurePathCoreDependencies.call(Context, {'Path': 'Test', 'Length': 10}, function(Err) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    },
+    'TestEnsurePathDependencies': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.RequestError, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.UnitTestCalls.EnsurePathDependencies.call(Context, {'Path': 'Test', 'Length': 10, 'Now': new Date()}, function(Err) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    },
+    'TestIncrement': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.RequestError, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.UnitTestCalls.Increment.call(Context, {'Path': 'Test', 'Now': new Date()}, function(Err) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    },
+    'TestGetPaths': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.ReportError, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.UnitTestCalls.GetPaths.call(Context, function(Err, Items) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    },
+    'TestGetTraffic': function(Test) {
+        Test.expect(2);
+        TrafficCounter.once(TrafficCounter.Event.ReportError, function(Err) {
+            Test.ok(Err, "Confirming that library triggered event on error.");
+        });
+        TrafficCounter.GetTraffic({'Path': 'Test', 'TimeUnit': TrafficCounter.TimeUnit.Hour, 'Length': 5, 'ReferenceTime': new Date()}, function(Err, Result) {
+            Test.ok(Err, "Confirming that library handled the error.");
+            setTimeout(function() {
+                Test.done();
+            }, 100);
+        });
+    }
+};
+
 if(process.env['USER'] && process.env['USER']=='root')
 {
-    exports.ErrorHandling = {
+    exports.NonResponsiveHandling = {
         'setUp': function(Callback) {
             MongoDB.MongoClient.connect("mongodb://localhost:27017/"+RandomIdentifier, {native_parser:true}, function(Err, DB) {
                 Context['DB'] = DB;
@@ -352,26 +687,49 @@ if(process.env['USER'] && process.env['USER']=='root')
                 Context['PID'] = null
                 Callback();
             });
+        },
+        'TestEnsureSharedDependencies': function(Test) {
+            Test.expect(0);
+            Test.done();
+        },
+        'TestEnsurePathCoreDependencies': function(Test) {
+            Test.expect(0);
+            Test.done();
+        },
+        'TestEnsurePathDependencies': function(Test) {
+            Test.expect(0);
+            Test.done();
+        },
+        'TestIncrement': function(Test) {
+            Test.expect(0);
+            Test.done();
+        },
+        'TestGetPaths': function(Test) {
+            Test.expect(0);
+            Test.done();
+        },
+        'TestGetTraffic': function(Test) {
+            Test.expect(0);
+            Test.done();
         }
     };
 }
 
-exports.TestIncrement = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
-
-exports.TestBuildFullPath = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
-
-exports.TestGetTraffic = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
-
-exports.TestGetPaths = function(Test) {
-    Test.expect(0);
-    Test.done();
-};
+process.on('uncaughtException', function(MainErr) {
+    if(Context.DB)
+    {
+        Context.DB.dropDatabase(function(Err, Result) {
+            if(Err)
+            {
+                console.log(Err);
+            }
+            console.log('Caught exception: ' + MainErr);
+            process.exit(1);
+        });
+    }
+    else
+    {
+        console.log('Caught exception: ' + MainErr);
+        process.exit(1);
+    }
+});

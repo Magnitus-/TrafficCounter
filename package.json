@@ -1,6 +1,6 @@
 {
   "name": "traffic-counter",
-  "version": "0.3.6",
+  "version": "0.4.5",
   "description": "Express.js Middleware To Count Requests on Paths",
   "keywords": [
     "express",
