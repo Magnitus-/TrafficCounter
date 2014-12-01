@@ -177,7 +177,7 @@ Accessors to view the Data
 
 There are 2 accessors to access the data. Both trigger the TrafficCounter.Event.ReportError event if a problem occurs:
 
-1) GetPaths(<Callback>)
+1) ```GetPaths(<Callback>)```
 
 Gets a list of paths monitored by the library so far.
 
@@ -187,9 +187,9 @@ Gets a list of paths monitored by the library so far.
 function(<Err>, <Paths>)
 ```
 
-<Err> is an error if any occured (else its a falsy value) and <Paths> is an array containing the paths the library tracked so far as strings.
+"Err" is an error if any occured (else its a falsy value) and "Paths" is an array containing the paths the library tracked so far as strings.
 
-2) GetTraffic(<Params>, <Callback>)
+2) ```GetTraffic(<Params>, <Callback>)```
 
 Gets either scalar or vectorial (array containing several tracked time intervals) information concerning the traffic for a given path.
 
@@ -197,7 +197,7 @@ This function takes a reference Date (defaults to the exact time when the functi
 units of time before the reference Date and either sum all the traffic between those Dates (inclusive) or return the traffic for all recorded 
 time intervals between those Dates.
 
-<Params> is an object containing the following keys:
+"Params" is an object containing the following keys:
 
 - ReferenceTime (optional): Defaults to the current time if not specified. It is a Date object.
 - Length: Determines how many units of time to substract from ReferenceTime to compute the prior Date. In addition, the prior Date will be
@@ -214,13 +214,13 @@ time intervals between those Dates.
 function(<Err>, <Result>)
 ```
 
-<Err> is an error if any occured (else its a falsy value). 
+"Err" is an error if any occured (else its a falsy value). 
 
-<Result> takes the following form:
+"Result" takes the following form:
 - If Cumulative is set to true, it is a natural number.
 - If Cumulative is set to false or not specified, it is an array taking the following form:
-  [<TimeInterval1>, <TimeInterval2>, ..., <TimeIntervalN>], where <TimeInterval...> takes the following form in turn:
-  {'Views': <NumberOfViews>, 'Date': <TruncatedDateRepresentingInterval>}
+  ```[<TimeInterval1>, <TimeInterval2>, ..., <TimeIntervalN>]```, where "TimeInterval..." takes the following form in turn:
+  ```{'Views': <NumberOfViews>, 'Date': <TruncatedDateRepresentingInterval>}```
 
 Utility Method
 ==============
@@ -234,15 +234,15 @@ It is made available externally (ie, TrafficCounter.TrancateTime(...)) in case s
 
 Assuming that you could do straightfoward arithmetic on Date objects, the operation it does would look like this:
 
-Return = floor(<Time>+<Modifier>*<TimeUnitParam>, <TimeUnitParam>)
+```Return = floor(<Time>+<Modifier>*<TimeUnitParam>, <TimeUnitParam>)```
 
 Ex:
 
 ```
 var Now = new Date();
-console.log(Now);                                                                //logs "Mon Dec 01 2014 06:01:11 GMT-0500 (EST)"
+console.log(Now);        //logs "Mon Dec 01 2014 06:01:11 GMT-0500 (EST)"
 var Result = TrafficCounter.TruncateTime(TrafficCounter.TimeUnit.Hour, Now, 2);
-console.log(Result);                                                             //logs "Mon Dec 01 2014 08:00:00 GMT-0500 (EST)"
+console.log(Result);     //logs "Mon Dec 01 2014 08:00:00 GMT-0500 (EST)"
 ```
 
 
